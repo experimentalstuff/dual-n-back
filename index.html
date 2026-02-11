@@ -89,7 +89,9 @@ button {
 <div id="summary"></div>
 
 <script>
-const letters = "BCDFGHJKLMNPQRSTVWXYZ";
+speechSynthesis.onvoiceschanged = () => {};
+
+    const letters = "BCDFGHJKLMNPQRSTVWXYZ";
 const n = 2;
 const totalRounds = 20;
 
@@ -187,6 +189,7 @@ function nextRound(){
     if(history.length > 20) history.shift();
 
     document.getElementById("letter").innerText = letter;
+    speakLetter(letter);
 
     document.querySelectorAll(".cell").forEach(c=>c.classList.remove("active"));
     document.querySelectorAll(".cell")[position].classList.add("active");
@@ -250,6 +253,23 @@ function endGame(){
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
+    function speakLetter(letter) {
+    const utterance = new SpeechSynthesisUtterance(letter);
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    // Optional: Force a more robotic / clear voice
+    const voices = speechSynthesis.getVoices();
+    const englishVoice = voices.find(v => v.lang.startsWith("en"));
+    if (englishVoice) {
+        utterance.voice = englishVoice;
+    }
+
+    speechSynthesis.cancel(); // prevents overlap
+    speechSynthesis.speak(utterance);
+}
+
 </script>
 
 </body>
