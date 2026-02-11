@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dual N-Back Pro</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont;
+    background: #0f172a;
+    color: white;
+    text-align: center;
+}
+
+h1 { margin-top: 20px; }
+
+#letter {
+    font-size: 64px;
+    margin: 15px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 90px);
+    gap: 10px;
+    justify-content: center;
+    margin: 20px;
+}
+
+.cell {
+    width: 90px;
+    height: 90px;
+    background: #1e293b;
+    border-radius: 12px;
+}
+
+.active {
+    background: #22c55e;
+}
+
+button {
+    padding: 12px 20px;
+    margin: 6px;
+    border-radius: 12px;
+    border: none;
+    font-size: 16px;
+    background: #2563eb;
+    color: white;
+}
+
+.stats {
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+#summary {
+    margin-top: 20px;
+    padding: 15px;
+    background: #1e293b;
+    border-radius: 12px;
+    display: none;
+}
+</style>
+</head>
+<body>
+
+<h1>Dual N-Back (2)</h1>
+
+<div id="letter">-</div>
+
+<div class="grid" id="grid"></div>
+
+<div id="controls">
+    <button onclick="submit('letter')">Letter</button>
+    <button onclick="submit('position')">Position</button><br>
+    <button onclick="submit('both')">Both</button>
+    <button onclick="submit('none')">None</button>
+</div>
+
+<div class="stats">
+    <p>Round: <span id="round">0</span>/20</p>
+    <p>Score: <span id="score">0</span></p>
+    <p>Streak: <span id="streak">0</span></p>
+</div>
+
+<div id="summary"></div>
+
+<script>
+const letters = "BCDFGHJKLMNPQRSTVWXYZ";
+const n = 2;
+const totalRounds = 20;
+
+let history = [];
+let score = 0;
+let streak = 0;
+let round = 0;
+let totalAnswers = 0;
+let correctAnswers = 0;
+let letterCorrect = 0;
+let positionCorrect = 0;
+let reactionTimes = [];
+let startTime = 0;
+let timer;
+let gameActive = true;
+
+let audioCtx;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+function playTone(freq, duration=120){
+    if (!audioCtx) return;
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.frequency.value = freq;
+    osc.type = "sine";
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration/1000);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration/1000);
+}
+
+const grid = document.getElementById("grid");
+for (let i = 0; i < 9; i++) {
+    let div = document.createElement("div");
+    div.className = "cell";
+    grid.appendChild(div);
+}
+
+function nextRound(){
+    if (!gameActive) return;
+
+    if (round >= totalRounds) {
+        endGame();
+        return;
+    }
+
+    round++;
+    document.getElementById("round").innerText = round;
+
+    const letter = letters[Math.floor(Math.random()*letters.length)];
+    const position = Math.floor(Math.random()*9);
+
+    history.push({letter, position});
+    if(history.length > 20) history.shift();
+
+    document.getElementById("letter").innerText = letter;
+
+    document.querySelectorAll(".cell").forEach(c=>c.classList.remove("active"));
+    document.querySelectorAll(".cell")[position].classList.add("active");
+
+    startTime = Date.now();
+    playTone(500);
+}
+
+function submit(type){
+    if (!gameActive) return;
+
+    initAudio(); // unlock audio on first tap
+
+    if(history.length <= n) return;
+
+    totalAnswers++;
+
+    const current = history[history.length-1];
+    const previous = history[history.length-1-n];
+
+    const letterMatch = current.letter === previous.letter;
+    const positionMatch = current.position === previous.position;
+
+    let correct = false;
+
+    if(type==="letter") correct = letterMatch && !positionMatch;
+    if(type==="position") correct = positionMatch && !letterMatch;
+    if(type==="both") correct = letterMatch && positionMatch;
+    if(type==="none") correct = !letterMatch && !positionMatch;
+
+    if(correct){
+        score += 10;
+        streak++;
+        correctAnswers++;
+        if(letterMatch) letterCorrect++;
+        if(positionMatch) positionCorrect++;
+        playTone(900);
+    } else {
+        score -= 5;
+        streak = 0;
+        playTone(200,200);
+    }
+
+    reactionTimes.push(Date.now() - startTime);
+
+    document.getElementById("score").innerText = score;
+    document.getElementById("streak").innerText = streak;
+}
+
+function endGame(){
+    gameActive = false;
+    clearInterval(timer);
+
+    const accuracy = Math.round((correctAnswers/totalAnswers)*100 || 0);
+    const avgReaction = Math.round(reactionTimes.reduce((a,b)=>a+b,0)/reactionTimes.length || 0);
+    const letterAcc = Math.round((letterCorrect/totalAnswers)*100 || 0);
+    const positionAcc = Math.round((positionCorrect/totalAnswers)*100 || 0);
+
+    document.getElementById("summary").style.display = "block";
+    document.getElementById("summary").innerHTML = `
+        <h3>Session Complete</h3>
+        <p>Final Score: ${score}</p>
+        <p>Overall Accuracy: ${accuracy}%</p>
+        <p>Letter Accuracy: ${letterAcc}%</p>
+        <p>Position Accuracy: ${positionAcc}%</p>
+        <p>Avg Reaction: ${avgReaction} ms</p>
+        <button onclick="location.reload()">Play Again</button>
+    `;
+
+    localStorage.setItem("dualNBackLastScore", score);
+}
+
+timer = setInterval(nextRound, 2500);
+nextRound();
+</script>
+
+</body>
+</html>
