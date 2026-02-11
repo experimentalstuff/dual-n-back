@@ -2,7 +2,10 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
 <title>Dual N-Back Pro</title>
+
+<link rel="manifest" href="manifest.json">
 
 <style>
 body {
@@ -49,10 +52,7 @@ button {
     color: white;
 }
 
-.stats {
-    margin-top: 10px;
-    font-size: 14px;
-}
+.stats { font-size: 14px; }
 
 #summary {
     margin-top: 20px;
@@ -66,6 +66,8 @@ button {
 <body>
 
 <h1>Dual N-Back (2)</h1>
+
+<button id="startBtn" onclick="startGame()">Start Session</button>
 
 <div id="letter">-</div>
 
@@ -97,19 +99,18 @@ let streak = 0;
 let round = 0;
 let totalAnswers = 0;
 let correctAnswers = 0;
-let letterCorrect = 0;
-let positionCorrect = 0;
 let reactionTimes = [];
 let startTime = 0;
 let timer;
-let gameActive = true;
+let gameActive = false;
 
-let audioCtx;
+let audioCtx = null;
 
 function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
+    audioCtx.resume();
 }
 
 function playTone(freq, duration=120){
@@ -118,8 +119,8 @@ function playTone(freq, duration=120){
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
 
-    osc.frequency.value = freq;
     osc.type = "sine";
+    osc.frequency.value = freq;
 
     osc.connect(gain);
     gain.connect(audioCtx.destination);
@@ -136,6 +137,14 @@ for (let i = 0; i < 9; i++) {
     let div = document.createElement("div");
     div.className = "cell";
     grid.appendChild(div);
+}
+
+function startGame(){
+    initAudio();
+    gameActive = true;
+    document.getElementById("startBtn").style.display = "none";
+    timer = setInterval(nextRound, 2500);
+    nextRound();
 }
 
 function nextRound(){
@@ -165,11 +174,7 @@ function nextRound(){
 }
 
 function submit(type){
-    if (!gameActive) return;
-
-    initAudio(); // unlock audio on first tap
-
-    if(history.length <= n) return;
+    if (!gameActive || history.length <= n) return;
 
     totalAnswers++;
 
@@ -190,8 +195,6 @@ function submit(type){
         score += 10;
         streak++;
         correctAnswers++;
-        if(letterMatch) letterCorrect++;
-        if(positionMatch) positionCorrect++;
         playTone(900);
     } else {
         score -= 5;
@@ -211,25 +214,20 @@ function endGame(){
 
     const accuracy = Math.round((correctAnswers/totalAnswers)*100 || 0);
     const avgReaction = Math.round(reactionTimes.reduce((a,b)=>a+b,0)/reactionTimes.length || 0);
-    const letterAcc = Math.round((letterCorrect/totalAnswers)*100 || 0);
-    const positionAcc = Math.round((positionCorrect/totalAnswers)*100 || 0);
 
     document.getElementById("summary").style.display = "block";
     document.getElementById("summary").innerHTML = `
         <h3>Session Complete</h3>
         <p>Final Score: ${score}</p>
-        <p>Overall Accuracy: ${accuracy}%</p>
-        <p>Letter Accuracy: ${letterAcc}%</p>
-        <p>Position Accuracy: ${positionAcc}%</p>
+        <p>Accuracy: ${accuracy}%</p>
         <p>Avg Reaction: ${avgReaction} ms</p>
         <button onclick="location.reload()">Play Again</button>
     `;
-
-    localStorage.setItem("dualNBackLastScore", score);
 }
 
-timer = setInterval(nextRound, 2500);
-nextRound();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
 </script>
 
 </body>
