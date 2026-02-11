@@ -106,12 +106,34 @@ let gameActive = false;
 
 let audioCtx = null;
 
-function initAudio() {
+async function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    audioCtx.resume();
+
+    if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+    }
+
+    // 🔥 Play tiny unlock tone immediately
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.value = 600;
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
 }
+
+        
+    
 
 function playTone(freq, duration=120){
     if (!audioCtx) return;
@@ -139,8 +161,8 @@ for (let i = 0; i < 9; i++) {
     grid.appendChild(div);
 }
 
-function startGame(){
-    initAudio();
+async function startGame(){
+    await initAudio();
     gameActive = true;
     document.getElementById("startBtn").style.display = "none";
     timer = setInterval(nextRound, 2500);
