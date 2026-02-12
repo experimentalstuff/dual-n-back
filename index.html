@@ -163,13 +163,22 @@ for (let i = 0; i < 9; i++) {
     grid.appendChild(div);
 }
 
-async function startGame(){
-    await initAudio();
+ function startGame(){
+
+    // Force load voices
+    speechSynthesis.getVoices();
+
+    // Speak silent word to unlock speech engine
+    const unlock = new SpeechSynthesisUtterance("");
+    speechSynthesis.speak(unlock);
+
     gameActive = true;
     document.getElementById("startBtn").style.display = "none";
     timer = setInterval(nextRound, 2500);
     nextRound();
 }
+
+
 
 function nextRound(){
     if (!gameActive) return;
@@ -253,20 +262,23 @@ function endGame(){
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
-    function speakLetter(letter) {
-    const utterance = new SpeechSynthesisUtterance(letter);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+    
+    
+ function speakLetter(letter) {
 
-    // Optional: Force a more robotic / clear voice
-    const voices = speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith("en"));
-    if (englishVoice) {
-        utterance.voice = englishVoice;
+    if (!('speechSynthesis' in window)) {
+        console.log("Speech not supported");
+        return;
     }
 
-    speechSynthesis.cancel(); // prevents overlap
+    const utterance = new SpeechSynthesisUtterance(letter);
+
+    utterance.lang = "en-US";
+    utterance.rate = 0.85;
+    utterance.pitch = 1.0;
+    utterance.volume = 1;
+
+    speechSynthesis.cancel();
     speechSynthesis.speak(utterance);
 }
 
